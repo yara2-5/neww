@@ -64,8 +64,9 @@ reg x_sign, y_sign;
 localparam IDLE = 2'b00, NORMALIZE = 2'b01, COMPUTE = 2'b10, FINISH = 2'b11;
 reg [1:0] state;
 
-// Additional register for iterative angle normalization
+// Registers for enhanced angle normalization
 reg signed [ANGLE_WIDTH-1:0] temp_angle;
+reg angle_negative;
 
 always @(posedge clock or posedge reset) begin
     if (reset) begin
@@ -75,46 +76,65 @@ always @(posedge clock or posedge reset) begin
         cosine <= 0;
         sine <= 0;
         computing <= 0;
+        temp_angle <= 0;
+        angle_negative <= 0;
     end else begin
         case (state)
             IDLE: begin
                 done <= 0;
                 if (start) begin
-                    temp_angle <= angle;  // Initialize temp_angle with input
+                    // Initialize with input angle
+                    temp_angle <= angle;
+                    angle_negative <= (angle < 0);
                     state <= NORMALIZE;
                     computing <= 1;
                 end
             end
             
             NORMALIZE: begin
-                // Enhanced angle normalization for unlimited range
-                // Iteratively reduce angle to [-2π, 2π] range
-                if (temp_angle > TWO_PI) begin
+                // Multi-cycle angle normalization for unlimited range support
+                // Efficiently reduces any angle to [-2π, 2π] range
+                
+                // Large reduction step: subtract multiples of 2π
+                if (temp_angle >= (TWO_PI << 4)) begin  // >= 32π (11520°)
+                    temp_angle <= temp_angle - (TWO_PI << 4);
+                end else if (temp_angle >= (TWO_PI << 3)) begin  // >= 16π (5760°)
+                    temp_angle <= temp_angle - (TWO_PI << 3);
+                end else if (temp_angle >= (TWO_PI << 2)) begin  // >= 8π (2880°)
+                    temp_angle <= temp_angle - (TWO_PI << 2);
+                end else if (temp_angle >= (TWO_PI << 1)) begin  // >= 4π (1440°)
+                    temp_angle <= temp_angle - (TWO_PI << 1);
+                end else if (temp_angle >= TWO_PI) begin         // >= 2π (720°)
                     temp_angle <= temp_angle - TWO_PI;
-                    // Stay in NORMALIZE state to continue reduction
-                end else if (temp_angle < -TWO_PI) begin
+                end else if (temp_angle <= -(TWO_PI << 4)) begin // <= -32π
+                    temp_angle <= temp_angle + (TWO_PI << 4);
+                end else if (temp_angle <= -(TWO_PI << 3)) begin // <= -16π
+                    temp_angle <= temp_angle + (TWO_PI << 3);
+                end else if (temp_angle <= -(TWO_PI << 2)) begin // <= -8π
+                    temp_angle <= temp_angle + (TWO_PI << 2);
+                end else if (temp_angle <= -(TWO_PI << 1)) begin // <= -4π
+                    temp_angle <= temp_angle + (TWO_PI << 1);
+                end else if (temp_angle <= -TWO_PI) begin        // <= -2π
                     temp_angle <= temp_angle + TWO_PI;
-                    // Stay in NORMALIZE state to continue reduction
                 end else begin
-                    // Angle is now in [-2π, 2π] range, proceed with quadrant correction
-                    normalized_angle <= temp_angle;
+                    // Angle is now in [-2π, 2π] range
+                    // Apply quadrant correction
+                    x_sign <= 0;
+                    y_sign <= 0;
                     
-                    // Quadrant detection and correction
                     if ((temp_angle > PI_2) && (temp_angle <= PI)) begin
                         // Second quadrant: cos(-), sin(+)
                         normalized_angle <= PI - temp_angle;
-                        x_sign <= 1; // Negate cosine
-                        y_sign <= 0;
+                        x_sign <= 1;
                     end else if ((temp_angle > PI) && (temp_angle <= PI_3_2)) begin
                         // Third quadrant: cos(-), sin(-)
                         normalized_angle <= temp_angle - PI;
-                        x_sign <= 1; // Negate cosine
-                        y_sign <= 1; // Negate sine
+                        x_sign <= 1;
+                        y_sign <= 1;
                     end else if (temp_angle > PI_3_2) begin
                         // Fourth quadrant: cos(+), sin(-)
                         normalized_angle <= TWO_PI - temp_angle;
-                        x_sign <= 0;
-                        y_sign <= 1; // Negate sine
+                        y_sign <= 1;
                     end else if (temp_angle < -PI_2) begin
                         if (temp_angle >= -PI) begin
                             // Third quadrant (negative): cos(-), sin(-)
@@ -125,13 +145,10 @@ always @(posedge clock or posedge reset) begin
                             // Second quadrant (negative): cos(-), sin(+)
                             normalized_angle <= temp_angle + PI;
                             x_sign <= 1;
-                            y_sign <= 0;
                         end
                     end else begin
-                        // First quadrant or small negative angles: no correction needed
+                        // First quadrant or small negative angles: no correction
                         normalized_angle <= temp_angle;
-                        x_sign <= 0;
-                        y_sign <= 0;
                     end
                     
                     // Initialize CORDIC variables

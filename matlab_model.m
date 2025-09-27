@@ -39,9 +39,10 @@ function matlab_model()
         hex2dec('0000A2FA')   % atan(2^-14)
     ];
     
-    %% Test angles (in degrees) - including extreme angles
+    %% Test angles (in degrees) - including ultra-extreme angles
     test_angles_deg = [0, 30, 45, 60, 90, 120, 135, 150, 180, 210, 225, 240, 270, 300, 315, 330, 360, ...
-                      450, -90, -180, 720, 810, 900, -360, -450, -720, 1080, 1440, -900, -1080];
+                      450, -90, -180, 720, 810, 900, -360, -450, -720, 1080, 1440, -900, -1080, ...
+                      1800, 3600, 7200, -1800, -3600, -7200, 11520, -11520, 14400, -18000];
     
     %% Run tests and compare with MATLAB built-in functions
     fprintf('=== CORDIC MATLAB Model Verification ===\n');
@@ -266,11 +267,15 @@ function [normalized_angle, x_sign, y_sign] = quadrant_correction(angle_fixed, a
     x_sign = false;
     y_sign = false;
     
-    % Enhanced normalization to [-2π, 2π] for unlimited input range
-    % This handles any magnitude of input angle efficiently
-    if abs(normalized_angle) > TWO_PI
-        % Use modulo operation for very large angles
-        normalized_angle = mod(normalized_angle + TWO_PI, 2*TWO_PI) - TWO_PI;
+    % Enhanced normalization for truly unlimited input range
+    % Use efficient modulo operation that handles any angle magnitude
+    
+    % First, use MATLAB's built-in modulo which is very efficient
+    normalized_angle = mod(normalized_angle, 2*TWO_PI);
+    
+    % Ensure result is in [-2π, 2π] range
+    if normalized_angle > TWO_PI
+        normalized_angle = normalized_angle - 2*TWO_PI;
     end
     
     % Quadrant correction

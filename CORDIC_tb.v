@@ -40,8 +40,8 @@ localparam real PI = 3.14159265359;
 localparam real ANGLE_SCALE = 2.0**(ANGLE_WIDTH-3); // Scale factor for fixed-point angles
 localparam real COORD_SCALE = 2.0**(WIDTH-2);       // Scale factor for coordinates
 
-// Test angles in degrees - including extreme angles
-real test_angles_deg [0:29] = {
+// Test angles in degrees - including truly extreme angles beyond ±720°
+real test_angles_deg [0:39] = {
     0.0, 30.0, 45.0, 60.0, 90.0,     // First quadrant
     120.0, 135.0, 150.0, 180.0,      // Second quadrant  
     210.0, 225.0, 240.0, 270.0,      // Third quadrant
@@ -50,7 +50,12 @@ real test_angles_deg [0:29] = {
     720.0, 810.0, 900.0,             // Extreme positive angles (2π, 2.25π, 2.5π)
     -360.0, -450.0, -720.0,          // Extreme negative angles  
     1080.0, 1440.0,                  // Very large angles (3π, 4π)
-    -900.0, -1080.0                  // Very large negative angles
+    -900.0, -1080.0,                 // Very large negative angles
+    // Ultra-extreme test cases
+    1800.0, 3600.0, 7200.0,          // 5π, 10π, 20π
+    -1800.0, -3600.0, -7200.0,       // -5π, -10π, -20π
+    11520.0, -11520.0,               // ±32π (extreme cases)
+    14400.0, -18000.0                // 40π, -50π (maximum test)
 };
 
 // DUT instantiation
@@ -156,8 +161,9 @@ task run_random_tests;
     begin
         $display("\n=== Random Angle Tests ===");
         for (i = 0; i < num_tests; i = i + 1) begin
-            // Generate random angles from -1800° to +1800° (±5π) 
-            random_angle = ($random % 36000) / 10.0 - 1800.0;
+            // Generate random angles from -36000° to +36000° (±100π) 
+            // This tests the truly unlimited range capability
+            random_angle = ($random % 720000) / 10.0 - 36000.0;
             $sformat(test_name, "Random_%0d", i);
             run_test(random_angle, test_name);
         end
@@ -209,12 +215,12 @@ initial begin
     #(CLOCK_PERIOD * 2);
     
     // Corner cases and extreme angle tests
-    $display("\n=== Corner Cases and Extreme Angle Tests ===");
-    for (i = 0; i < 30; i = i + 1) begin
+    $display("\n=== Corner Cases and Ultra-Extreme Angle Tests ===");
+    for (i = 0; i < 40; i = i + 1) begin
         if (i < 20)
             $sformat(test_name, "Corner_%0d", i);
         else
-            $sformat(test_name, "Extreme_%0d", i-20);
+            $sformat(test_name, "UltraExtreme_%0d", i-20);
         run_test(test_angles_deg[i], test_name);
     end
     
