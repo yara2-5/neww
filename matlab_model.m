@@ -39,8 +39,9 @@ function matlab_model()
         hex2dec('0000A2FA')   % atan(2^-14)
     ];
     
-    %% Test angles (in degrees)
-    test_angles_deg = [0, 30, 45, 60, 90, 120, 135, 150, 180, 210, 225, 240, 270, 300, 315, 330, 360, 450, -90, -180];
+    %% Test angles (in degrees) - including extreme angles
+    test_angles_deg = [0, 30, 45, 60, 90, 120, 135, 150, 180, 210, 225, 240, 270, 300, 315, 330, 360, ...
+                      450, -90, -180, 720, 810, 900, -360, -450, -720, 1080, 1440, -900, -1080];
     
     %% Run tests and compare with MATLAB built-in functions
     fprintf('=== CORDIC MATLAB Model Verification ===\n');
@@ -254,22 +255,22 @@ function [cos_out, sin_out, debug_data] = cordic_fixed_point_debug(angle_rad, co
     sin_out = double(y) / coord_scale;
 end
 
-%% Quadrant correction function
+%% Enhanced quadrant correction function for unlimited angle range
 function [normalized_angle, x_sign, y_sign] = quadrant_correction(angle_fixed, angle_scale)
     PI = round(pi * angle_scale);
     PI_2 = round(pi/2 * angle_scale);
     TWO_PI = round(2*pi * angle_scale);
+    PI_3_2 = round(3*pi/2 * angle_scale);
     
     normalized_angle = angle_fixed;
     x_sign = false;
     y_sign = false;
     
-    % Normalize to [-2π, 2π]
-    while normalized_angle > TWO_PI
-        normalized_angle = normalized_angle - TWO_PI;
-    end
-    while normalized_angle < -TWO_PI
-        normalized_angle = normalized_angle + TWO_PI;
+    % Enhanced normalization to [-2π, 2π] for unlimited input range
+    % This handles any magnitude of input angle efficiently
+    if abs(normalized_angle) > TWO_PI
+        % Use modulo operation for very large angles
+        normalized_angle = mod(normalized_angle + TWO_PI, 2*TWO_PI) - TWO_PI;
     end
     
     % Quadrant correction

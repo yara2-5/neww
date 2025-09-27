@@ -40,13 +40,17 @@ localparam real PI = 3.14159265359;
 localparam real ANGLE_SCALE = 2.0**(ANGLE_WIDTH-3); // Scale factor for fixed-point angles
 localparam real COORD_SCALE = 2.0**(WIDTH-2);       // Scale factor for coordinates
 
-// Test angles in degrees
-real test_angles_deg [0:19] = {
+// Test angles in degrees - including extreme angles
+real test_angles_deg [0:29] = {
     0.0, 30.0, 45.0, 60.0, 90.0,     // First quadrant
     120.0, 135.0, 150.0, 180.0,      // Second quadrant  
     210.0, 225.0, 240.0, 270.0,      // Third quadrant
     300.0, 315.0, 330.0, 360.0,      // Fourth quadrant
-    450.0, -90.0, -180.0             // Overflow/underflow tests
+    450.0, -90.0, -180.0,            // Basic overflow/underflow tests
+    720.0, 810.0, 900.0,             // Extreme positive angles (2π, 2.25π, 2.5π)
+    -360.0, -450.0, -720.0,          // Extreme negative angles  
+    1080.0, 1440.0,                  // Very large angles (3π, 4π)
+    -900.0, -1080.0                  // Very large negative angles
 };
 
 // DUT instantiation
@@ -152,7 +156,8 @@ task run_random_tests;
     begin
         $display("\n=== Random Angle Tests ===");
         for (i = 0; i < num_tests; i = i + 1) begin
-            random_angle = ($random % 7200) / 10.0 - 360.0; // Random angle from -360° to +360°
+            // Generate random angles from -1800° to +1800° (±5π) 
+            random_angle = ($random % 36000) / 10.0 - 1800.0;
             $sformat(test_name, "Random_%0d", i);
             run_test(random_angle, test_name);
         end
@@ -203,10 +208,13 @@ initial begin
     reset = 0;
     #(CLOCK_PERIOD * 2);
     
-    // Corner cases test
-    $display("\n=== Corner Cases Tests ===");
-    for (i = 0; i < 20; i = i + 1) begin
-        $sformat(test_name, "Corner_%0d", i);
+    // Corner cases and extreme angle tests
+    $display("\n=== Corner Cases and Extreme Angle Tests ===");
+    for (i = 0; i < 30; i = i + 1) begin
+        if (i < 20)
+            $sformat(test_name, "Corner_%0d", i);
+        else
+            $sformat(test_name, "Extreme_%0d", i-20);
         run_test(test_angles_deg[i], test_name);
     end
     
